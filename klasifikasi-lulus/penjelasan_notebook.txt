@@ -1,0 +1,161 @@
+# Penjelasan Notebook: Klasifikasi Kelulusan Mahasiswa
+
+Dokumen ini menjelaskan alur kode dan output yang dihasilkan dalam file `klasifikasi_kelulusan.ipynb`.
+
+## 1. Import Library dan Upload Data
+
+### Kode
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import io
+from google.colab import files
+
+print("Mode Google Colab. Silakan upload file CSV Anda:")
+
+# 1. Memicu tombol upload
+uploaded = files.upload()
+
+# 2. Cek apakah ada file yang diupload
+if uploaded:
+    # Mengambil file pertama yang diupload
+    filename = next(iter(uploaded))
+
+    # Membaca file ke Pandas
+    df = pd.read_csv(io.BytesIO(uploaded[filename]))
+    print(f"\nSukses! File '{filename}' berhasil dibaca.")
+
+    # Preview Data
+    print("\nPreview Data:")
+    display(df.head())
+else:
+    print("\nTidak ada file yang diupload. Silakan ulangi cell ini.")
+```
+
+### Penjelasan
+Cell ini berfungsi untuk menyiapkan lingkungan kerja:
+1.  **Import Library**: Memanggil library penting seperti `pandas` (manipulasi data), `numpy` (komputasi numerik), serta `matplotlib` dan `seaborn` (visualisasi). `google.colab` digunakan khusus untuk fitur upload file di Google Colab.
+2.  **Upload File**: `files.upload()` memunculkan widget untuk mengunggah file `data_mahasiswa.csv` dari komputer lokal pengguna.
+3.  **Membaca CSV**: File yang diunggah dibaca menjadi DataFrame pandas (`df`).
+4.  **Preview**: Menampilkan 5 baris pertama data untuk memastikan data terbaca dengan benar.
+
+### Output
+-   Widget tombol "Choose Files" (interaktif di Colab).
+-   Pesan konfirmasi: `Sukses! File 'data_mahasiswa.csv' berhasil dibaca.`
+-   Tabel Preview Data yang berisi kolom: `IPK`, `Kehadiran_Persen`, `Jumlah_SKS`, dan `Lulus`.
+
+---
+
+## 2. Preprocessing Data (Persiapan)
+
+### Kode
+```python
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+if 'df' in locals():
+    # 1. Memisahkan Fitur dan Target
+    X = df[['IPK', 'Kehadiran_Persen', 'Jumlah_SKS']]
+    y = df['Lulus']
+
+    # 2. Mengubah Label Teks ke Angka
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y)
+
+    # Menampilkan peta perubahan (misal: Lulus=0, Tidak=1)
+    mapping = dict(zip(le.classes_, le.transform(le.classes_)))
+    print(f"Mapping Label: {mapping}")
+
+    # 3. Membagi Data Training & Testing
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+    print("Data siap untuk modeling.")
+else:
+    print("Jalankan cell sebelumnya dulu.")
+```
+
+### Penjelasan
+Tahap ini mengubah data mentah menjadi format yang siap untuk algoritma Machine Learning:
+1.  **Pemisahan Fitur (X) dan Target (y)**:
+    -   `X` (Input): Kolom `IPK`, `Kehadiran_Persen`, `Jumlah_SKS`.
+    -   `y` (Output): Kolom `Lulus`.
+2.  **Encoding**: Kolom target berisi teks ("Lulus"/"Tidak Lulus"). `LabelEncoder` mengubahnya menjadi angka agar bisa diproses komputer (misalnya, Lulus=0, Tidak Lulus=1).
+3.  **Split Data**: Data dibagi menjadi dua bagian:
+    -   **Training Set (80%)**: Untuk melatih model.
+    -   **Testing Set (20%)**: Untuk menguji performa model nanti.
+
+### Output
+-   Informasi mapping label, contohnya: `Mapping Label: {'Lulus': 0, 'Tidak Lulus': 1}`.
+-   Pesan: `Data siap untuk modeling`, menandakan proses pembagian data berhasil.
+
+---
+
+## 3. Modeling dan Evaluasi
+
+### Kode
+```python
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report
+
+if 'X_train' in locals():
+    # 1. Membuat & Melatih Model
+    model = DecisionTreeClassifier(criterion='gini', random_state=42)
+    model.fit(X_train, y_train)
+
+    # 2. Prediksi Data Uji
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+
+    print(f"Akurasi Model: {acc * 100}%")
+    print("\nDetail Laporan:")
+    print(classification_report(y_test, y_pred, target_names=le.classes_))
+else:
+    print("Data training tidak ada.")
+```
+
+### Penjelasan
+Inti dari proses Machine Learning:
+1.  **Pelatihan**: `DecisionTreeClassifier` digunakan sebagai algoritma. Fungsi `.fit()` melatih model menggunakan data `X_train` dan `y_train` untuk mempelajari pola kelulusan.
+2.  **Prediksi**: Model diminta memprediksi status kelulusan untuk data uji (`X_test`).
+3.  **Evaluasi**: Membandingkan hasil prediksi model dengan jawaban asli (`y_test`) menggunakan metrik Akurasi dan Laporan Klasifikasi.
+
+### Output
+-   **Akurasi Model**: `100.0%` (menunjukkan model memprediksi data uji dengan sempurna).
+-   **Classification Report**: Tabel detail yang menunjukkan nilai *Precision*, *Recall*, dan *F1-Score* yang semuanya bernilai 1.00, mengindikasikan performa model sangat baik pada data uji tersebut.
+
+---
+
+## 4. Visualisasi & Prediksi Manual
+
+### Kode
+```python
+from sklearn.tree import plot_tree
+
+# 1. Visualisasi Pohon Keputusan
+plt.figure(figsize=(10, 8))
+plot_tree(model, feature_names=X.columns, class_names=[str(c) for c in le.classes_], filled=True)
+plt.show()
+
+# 2. Prediksi Manual (Coba-coba)
+# Misal: IPK=2.0 (Kecil), Kehadiran=80 (Rajin), SKS=120 (Dikit)
+contoh_mahasiswa = np.array([[2.0, 80, 120]])
+prediksi_angka = model.predict(contoh_mahasiswa)
+prediksi_text = le.inverse_transform(prediksi_angka)
+
+print(f"\nPrediksi untuk mahasiswa tersebut: {prediksi_text}")
+```
+
+### Penjelasan
+Langkah terakhir untuk interpretasi dan pengujian praktis:
+1.  **Visualisasi Pohon**: `plot_tree` menggambar struktur aturan yang telah dipelajari model. Kita bisa melihat logika seperti "Jika IPK <= X, maka ke kiri...".
+2.  **Prediksi Manual**: Kita membuat satu data dummy (contoh mahasiswa) dengan atribut:
+    -   IPK: 2.0
+    -   Kehadiran: 80%
+    -   SKS: 120
+    Data ini dimasukkan ke model untuk dilihat prediksinya.
+3.  **Inverse Transform**: Mengembalikan hasil prediksi angka (0/1) kembali menjadi teks aslinya ("Lulus"/"Tidak Lulus").
+
+### Output
+-   **Gambar**: Diagram pohon keputusan (Decision Tree) yang bercabang-cabang dengan warna kotak yang merepresentasikan kelas mayoritas di tiap node.
+-   **Teks Prediksi**: `Prediksi untuk mahasiswa tersebut: ['Tidak Lulus']`. Ini berarti berdasarkan pola yang dipelajari, mahasiswa dengan data tersebut diprediksi tidak akan lulus.
